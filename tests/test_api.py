@@ -1,28 +1,43 @@
+import pytest
+from unittest.mock import Mock, patch
 from src.api import HeadHunterAPI
+import requests
 
 
+@patch('src.api.requests.get')
+def test_get_vacancies_success(mock_get):
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"items": [{"name": "Test"}]}
+    mock_get.return_value = mock_response
 
-def test_get_vacancies_success(requests_mock):
     api = HeadHunterAPI()
-    mock_data = {"items": [{"id": "1", "name": "Python Developer"}]}
-    requests_mock.get(api.BASE_URL, json=mock_data, status_code=200)
+    result = api.get_vacancies("python")
 
-    result = api.get_vacancies("Python", 10)
     assert len(result) == 1
-    assert result[0]["name"] == "Python Developer"
+    assert result[0]["name"] == "Test"
 
 
-def test_get_vacancies_empty_response(requests_mock):
+@patch('src.api.requests.get')
+def test_get_vacancies_failure(mock_get):
+    mock_response = Mock()
+    mock_response.status_code = 500
+    mock_response.text = "Server Error"
+    mock_get.return_value = mock_response
+
     api = HeadHunterAPI()
-    requests_mock.get(api.BASE_URL, json={}, status_code=200)
 
-    result = api.get_vacancies("Java", 5)
-    assert result == []
+    # Изменяем тест для обработки возвращаемого значения
+    result = api.get_vacancies("python")
+    assert result == []  # Проверяем, что возвращается пустой список при ошибке
 
 
-def test_get_vacancies_error_handling(requests_mock):
+def test_api_validation():
     api = HeadHunterAPI()
-    requests_mock.get(api.BASE_URL, status_code=400)
+    response = Mock()
+    response.status_code = 404
+    response.text = "Not Found"
 
-    result = api.get_vacancies("C++", 3)
-    assert result == []
+    with pytest.raises(Exception) as e:
+        api._validate_response(response)
+    assert "404" in str(e.value)

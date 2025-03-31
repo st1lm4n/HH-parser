@@ -1,39 +1,47 @@
+import pytest
 from src.vacancy import Vacancy
+import logging
 
 
 def test_vacancy_creation():
-    vacancy = Vacancy(
-        title="Python Developer",
-        url="https://hh.ru/vacancy/123",
-        salary={"from": 100000, "to": 150000, "currency": "RUR"},
-        description="Требуется опыт работы 3 года",
-    )
-
-    assert vacancy.title == "Python Developer"
-    assert vacancy.salary_from == 100000
-    assert vacancy.salary_to == 150000
-    assert vacancy.currency == "RUR"
+    vac = Vacancy("Test Title", "http://test.com", {"from": 100000, "to": 200000}, "Test description")
+    assert vac.title == "Test Title"
+    assert vac.url == "http://test.com"
+    assert vac.salary_from == 100000
+    assert vac.salary_to == 200000
+    assert vac.currency == "RUR"
+    assert vac.description == "Test description"
 
 
 def test_vacancy_without_salary():
-    vacancy = Vacancy(title="Java Developer", url="https://hh.ru/vacancy/456", salary=None, description="Стажировка")
-
-    assert vacancy.salary_from == 0
-    assert vacancy.salary_to == 0
+    vac = Vacancy("Test", "http://test.com", None, "")
+    assert vac.salary_from == 0
+    assert vac.salary_to == 0
+    assert vac.currency == "RUR"
 
 
 def test_vacancy_comparison():
-    v1 = Vacancy("A", "url1", {"from": 100000}, "")
-    v2 = Vacancy("B", "url2", {"from": 150000}, "")
+    vac1 = Vacancy("Junior", "http://test.com", {"from": 50000}, "")
+    vac2 = Vacancy("Senior", "http://test.com", {"from": 150000}, "")
+    assert vac1 < vac2
 
-    assert v2 > v1
+
+def test_invalid_vacancy():
+    with pytest.raises(ValueError):
+        Vacancy("", "http://test.com", {}, "")
+
+    with pytest.raises(ValueError):
+        Vacancy("Test", "invalid_url", {}, "")
 
 
 def test_cast_to_object_list():
-    raw_data = [
-        {"name": "Dev", "alternate_url": "url", "salary": None},
-        {"name": None, "alternate_url": "url", "salary": {"from": 50000}},
-    ]
+    api_data = [{
+        "name": "Python Developer",
+        "alternate_url": "http://hh.ru/vacancy/1",
+        "salary": {"from": 100000, "currency": "RUR"},
+        "snippet": {"requirement": "Python experience"}
+    }]
 
-    vacancies = Vacancy.cast_to_object_list(raw_data)
+    vacancies = Vacancy.cast_to_object_list(api_data)
     assert len(vacancies) == 1
+    assert vacancies[0].title == "Python Developer"

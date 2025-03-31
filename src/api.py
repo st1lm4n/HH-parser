@@ -1,39 +1,72 @@
+from abc import ABC, abstractmethod
 from urllib.parse import quote
 import requests
 import logging
+import json
+
+logging.basicConfig(level=logging.INFO)
 
 
-class HeadHunterAPI:
+class JobAPI(ABC):
+    """Абстрактный класс для работы с API вакансий"""
+
+    @abstractmethod
+    def get_vacancies(self, keyword: str, per_page: int) -> list:
+        pass
+
+    @abstractmethod
+    def _validate_response(self, response: requests.Response) -> None:
+        pass
+
+
+class HeadHunterAPI(JobAPI):
+    """Класс для работы с API HeadHunter"""
+
     BASE_URL = "https://api.hh.ru/vacancies"
 
     def __init__(self):
-        self.headers = {
+        self.__headers = {
             "User-Agent": "MyApp/1.0 (skapincev.15@mail.ru)",
-            "HH-User-Agent": "MyApp (skapincev.15@mail.ru)",
+            "HH-User-Agent": "MyApp (skapincev.15@mail.ru)"
         }
 
-    def get_vacancies(self, keyword: str, per_page: int = 100) -> list:
+    def _connect_to_api(self, params: dict) -> requests.Response:
+        """Приватный метод для подключения к API"""
         try:
-            # Кодируем только один раз и выводим для проверки
-            original_text = keyword
-            encoded_text = quote(original_text)
+            return requests.get(
+                self.BASE_URL,
+                headers=self.__headers,
+                params=params,
+                timeout=30
+            )
+        except requests.RequestException as e:
+            logging.error(f"Connection error: {str(e)}")
+            raise
 
+    def _validate_response(self, response: requests.Response) -> None:
+        """Валидация ответа от API"""
+        if response.status_code != 200:
+            raise Exception(f"API Error {response.status_code}: {response.text}")
+
+    def get_vacancies(self, keyword: str, per_page: int = 100) -> list:
+        """
+        Получение вакансий по ключевому слову"""
+        try:
             params = {
-                "text": original_text,  # Пробуем без кодирования
-                "area": 113,
+                "text": f"NAME:{keyword}",
                 "per_page": per_page,
                 "locale": "RU",
-                "enable_snippets": "true",
+                "search_field": "name"
             }
 
-            response = requests.get(self.BASE_URL, headers=self.headers, params=params, timeout=10)
-
-            response.raise_for_status()
+            response = self._connect_to_api(params)
+            self._validate_response(response)
 
             data = response.json()
+            logging.info(f"Received {len(data.get('items', []))} vacancies for query: '{keyword}'")
 
             return data.get("items", [])
 
         except Exception as e:
-            logging.error(f"API Error: {str(e)}")
+            logging.exception(f"Failed to get vacancies: {str(e)}")
             return []
